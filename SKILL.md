@@ -9,9 +9,10 @@ description: 把一篇难读的专业论文/文档，变成一段"深入浅出�
 
 ## 关键第一步：先问模式
 
-接到一篇内容，**先问用户要「精炼版」还是「详细版」**（这是固定流程，通过对话异步问，不阻塞）：
-- **精炼版**：~2000 字、一条主线、≤10 分钟。
-- **详细版**：逐个模块/概念讲透 + 每个名词用比喻记住 + 举一反三，时长跟干货走。
+接到一篇内容，**先问用户要哪种模式**（这是固定流程，通过对话异步问，不阻塞）：
+- **精炼版**：~2000 字、一条主线、≤10 分钟。（解读，双人对话）
+- **详细版**：逐个模块/概念讲透 + 每个名词用比喻记住 + 举一反三，时长跟干货走。（解读，双人对话）
+- **无损版**：忠实完整朗读整本书/长文，**不改写不浓缩**，按 ~30 分钟切单元，每单元出逐字稿+朗读MP3，并带断点续传标记。（单人朗读，详见 `references/lossless-mode.md`）
 
 ## 工作流
 
@@ -35,6 +36,20 @@ description: 把一篇难读的专业论文/文档，变成一段"深入浅出�
 5. **回传用户**
    - MP3 用 comm-bridge 所在渠道的发文件能力发送（飞书：`feishu/src/cli.js send-file <chat_id> <mp3>`；c4-send 只能发文本）。
    - 一并发逐字稿文档链接 + 真实成本（字符数/时长/¥）。
+
+## 无损版工作流（整书朗读 · 断点续传）
+
+完整规范见 `references/lossless-mode.md`（含**断点续传标记格式**，必须严格照写）。要点：
+
+1. **取全文** → 清洗成一份 `full_clean_text.txt`（轻清洗：修错字/补断句/去页眉页脚，**不删正文**）。记下 `source_id`（能唯一定位本书）。
+2. **续读判断**：若已有 `resume_state.json`，读它拿 `next_start_char` + voice_params；否则从 0 开始、首单元估算 `total_units`。
+3. **切一个单元**：`python3 scripts/chunk_book.py --text full_clean_text.txt --start <next_start_char> --chars 8500 --out /tmp/sp_unit.txt`（在段落边界切，输出 end/next_start/end_anchor/next_anchor）。
+4. **朗读**：`python3 scripts/narrate.py --text /tmp/sp_unit.txt --out /tmp/sp_unit_K.mp3 --voice longxiaochun_v2 --model cosyvoice-v2`（整本书固定同一音色/语速）。
+5. **逐字稿**：在单元文本末尾追加 **RESUME ANCHOR 标记块**（格式见 lossless-mode.md），再 `node scripts/feishu_doc.mjs` 落飞书文档。
+6. **写状态**：覆盖更新 `resume_state.json`（schema=study-podcast.resume/v1）。
+7. **回传**：MP3 + 逐字稿链接 + 一句进度（"第 K 单元，进度 PCT%"）。`next_start_char >= total_chars` 时标 `finished`，告知"全书朗读完成"。
+
+> 续传契约：另一个 agent 接手时，只读 `resume_state.json`（或逐字稿结尾标记），用 `next_start_char`+`next_anchor` 双重校验定位，沿用相同 voice_params 续读下一个 30 分钟。两者不一致就停下报错，不硬续。
 
 ## 依赖
 
