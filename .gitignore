@@ -1,0 +1,8 @@
+# transient build artifacts
+/tmp/
+*.mp3
+sp_segs/
+pod_seg*/
+__pycache__/
+*.pyc
+.env
