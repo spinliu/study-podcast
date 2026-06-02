@@ -46,6 +46,7 @@ def main():
     ap.add_argument("--male-pitch", type=int, default=0)
     ap.add_argument("--segdir", default="/tmp/mm_segs")
     ap.add_argument("--gap", type=float, default=0.26)
+    ap.add_argument("--delay", type=float, default=1.2, help="seconds between API calls (avoid RPM rate limit)")
     ap.add_argument("--rate-per-10k", type=float, default=7.0, help="CNY per 10k Chinese chars est (HD, 1汉字=2字符)")
     a = ap.parse_args()
 
@@ -84,25 +85,38 @@ def main():
             raise RuntimeError(json.dumps(r.get("base_resp"), ensure_ascii=False))
         return bytes.fromhex(r["data"]["audio"])
 
+    def synth_seg(text, voice, pitch, emo):
+        # try assigned emotion then neutral; on rate-limit (1002) back off and retry harder
+        for e in [emo, "neutral"]:
+            for attempt in range(5):
+                try:
+                    return synth(text, voice, pitch, e)
+                except Exception as ex:
+                    s = str(ex)
+                    if "1002" in s or "rate limit" in s.lower():
+                        time.sleep(6 + attempt * 3)          # RPM backoff
+                    elif attempt < 4:
+                        time.sleep(2)
+                    else:
+                        break  # try next emotion
+        return None
+
     listpath = os.path.join(a.segdir, "list.txt")
     with open(listpath, "w") as lf:
         for i, (spk, text) in enumerate(segs):
             c = cfg[spk]
+            fn = os.path.join(a.segdir, f"seg_{i:03d}.mp3")
+            if os.path.exists(fn) and os.path.getsize(fn) > 400:   # resume: reuse existing
+                lf.write(f"file '{fn}'\nfile '{sil}'\n"); continue
             emo = ("surprised" if (c["kind"] == "f" and SURPRISE.search(text)) else
                    "happy" if c["kind"] == "f" else "neutral")
-            for attempt, e in enumerate([emo, "neutral", None]):
-                if e is None:
-                    print(f"seg {i:03d} FAILED"); sys.exit(3)
-                try:
-                    audio = synth(text, c["voice"], c["pitch"], e)
-                    fn = os.path.join(a.segdir, f"seg_{i:03d}.mp3")
-                    open(fn, "wb").write(audio)
-                    lf.write(f"file '{fn}'\nfile '{sil}'\n")
-                    if i % 10 == 0: print(f"seg {i:03d} {spk}/{c['voice']} emo={e}", flush=True)
-                    break
-                except Exception as ex:
-                    if attempt == 0: time.sleep(1)  # retry once with neutral
-                    else: print(f"seg {i:03d} err: {ex}", flush=True); time.sleep(2)
+            audio = synth_seg(text, c["voice"], c["pitch"], emo)
+            if audio is None:
+                print(f"seg {i:03d} FAILED"); sys.exit(3)
+            open(fn, "wb").write(audio)
+            lf.write(f"file '{fn}'\nfile '{sil}'\n")
+            if i % 10 == 0: print(f"seg {i:03d} {spk}/{c['voice']} emo={emo}", flush=True)
+            time.sleep(a.delay)   # pace to avoid RPM limit
 
     r = subprocess.run(f"ffmpeg -y -f concat -safe 0 -i {listpath} -c:a libmp3lame -q:a 4 {a.out}",
                        shell=True, capture_output=True, text=True)
