@@ -22,12 +22,16 @@ description: 把一篇难读的专业论文/文档，变成一段"深入浅出�
 2. **写脚本**（核心，由你来写，不要外包给摘要工具）
    - 严格按 `references/script-method.md`：5 条质量标准 + 选定模式 + 对话格式。
    - 输出 Markdown，每句台词格式 `**【小鹿】** …`（女声·提问）/ `**【老唐】** …`（男声·讲透）。写到 `/tmp/sp_script.md`。
-3. **合成音频**
+3. **合成音频** — **主引擎 MiniMax speech-02-HD**（默认，最自然；选型依据见 `references/voice-eval.md`）：
    ```
-   python3 scripts/synthesize.py --script /tmp/sp_script.md --out /tmp/sp_podcast.mp3 \
-       --model cosyvoice-v2 --female longxiaochun_v2 --male longcheng_v2 --segdir /tmp/sp_segs
+   python3 scripts/synthesize_minimax.py --script /tmp/sp_script.md --out /tmp/sp_podcast.mp3 \
+       --female-voice female-shaonv --male-voice male-qn-badao --speed 1.3 \
+       --female-pitch 1 --male-pitch 0 --segdir /tmp/sp_segs
    ```
-   末行打印时长/字符数/成本。音色与成本见 `references/voices-and-cost.md`。
+   （女声以 happy 为主、问句自动切 surprised；男声磁性 neutral；逐句情绪。需 MINIMAX_API_KEY。）
+   **备份引擎**（主引擎余额不足/故障时，或纯省钱）：CosyVoice v2 →
+   `python3 scripts/synthesize.py --script ... --model cosyvoice-v2 --female longxiaochun_v2 --male longcheng_v2`
+   末行均打印时长/字符数/成本。音色与成本见 `references/voices-and-cost.md`。
 4. **逐字稿落飞书**
    ```
    node scripts/feishu_doc.mjs /tmp/sp_script.md "<标题·解读逐字稿> [owner_open_id]"

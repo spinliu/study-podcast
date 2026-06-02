@@ -1,6 +1,16 @@
 # 音色与成本
 
-## TTS 引擎：阿里云百炼 DashScope CosyVoice
+## 引擎层级（2026-06-02 定稿，依据见 voice-eval.md）
+
+- **主引擎：MiniMax speech-02-HD**（脚本 `scripts/synthesize_minimax.py`）。锁定参数：女声 `female-shaonv` pitch+1 / happy 为主·问句切 surprised；男声 `male-qn-badao`（磁性）pitch 0 neutral；speed 1.3；逐句情绪。
+  - API：`POST https://api.minimaxi.com/v1/t2a_v2`，`Authorization: Bearer <MINIMAX_API_KEY>`（sk-cp- 自带 group，不传 GroupId）。body：`model:"speech-02-hd"` + `voice_setting{voice_id,speed(0.5-2),vol,pitch(-12~12,负=低沉),emotion}` + `audio_setting{sample_rate,format}`。返回 `data.audio` 为 **hex**（`bytes.fromhex`）。emotion 可选 happy/sad/angry/surprised/fearful/neutral 等，可逐句配。
+  - 成本：~¥3.5/万字符，**中文 1 汉字=2 字符 → 实际 ~¥7/万汉字**。
+- **备份引擎：阿里云百炼 CosyVoice v2**（脚本 `scripts/synthesize.py` / `narrate.py`）。主引擎不可用时兜底，也是"纯省钱"档（¥2/万汉字）。
+- 火山豆包：评测过的候选，未设默认（见 voice-eval.md）。
+
+---
+
+## 备份引擎细节：阿里云百炼 DashScope CosyVoice
 
 - SDK：`pip install dashscope --break-system-packages`，`from dashscope.audio.tts_v2 import SpeechSynthesizer`
 - 凭据：`DASHSCOPE_API_KEY`（在 ~/zylos/.env）
