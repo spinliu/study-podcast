@@ -17,7 +17,7 @@ adapter(<source>) ->  /tmp/sp_source.txt   # UTF-8 纯文本（正文，去掉�
 | 模态 | 状态 | 脚本 | 说明 |
 |---|---|---|---|
 | 飞书文档 / wiki | ✅ 已实现 | `scripts/fetch_feishu.mjs <token>` | 最简单。wiki 节点 token 可直接当 docx id |
-| PDF（论文/书） | 🔲 占位 | `scripts/sources/from_pdf.py` | 计划用 pdfplumber/pymupdf 抽正文；长书需先分章 |
+| PDF（论文/书） | ✅ 已实现 | `scripts/sources/from_pdf.py` | PyMuPDF4LLM 结构化 Markdown(主, 纯CPU秒级) + fitz 兜底; --plain 出朗读文本 |
 | ePub（电子书） | 🔲 占位 | `scripts/sources/from_epub.py` | 计划用 ebooklib 解析章节 HTML→文本 |
 | PPT（pptx） | 🔲 占位 | `scripts/sources/from_pptx.py` | 计划用 python-pptx 抽每页文本+备注 |
 | 网页 URL | 🔲 占位 | （未建） | 计划用 readability 抽正文 |
